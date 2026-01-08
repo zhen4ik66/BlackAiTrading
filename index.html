@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Black Trading — AI BOT</title>
+<meta name="description" content="Black Trading — AI BOT с приватными сигналами" />
+
+<style>
+:root{
+  --bg:#060b08; --bg2:#04150c;
+  --grid:rgba(0,255,140,.06);
+  --neon:#00ff9a; --neon2:#32ffb6;
+  --muted:rgba(210,255,235,.72);
+  --stroke:rgba(0,255,154,.18); --shadow:rgba(0,255,154,.22);
+  --cardA:rgba(6,18,12,.74); --cardB:rgba(6,18,12,.44);
+}
+
+*{box-sizing:border-box}
+html,body{
+  height:100%; margin:0; font-family:ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, monospace;
+  overflow:hidden; color:#eafff5;
+  background: linear-gradient(180deg, var(--bg), var(--bg2));
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+}
+
+/* --- grid --- */
+.grid{
+  position:fixed; inset:0;
+  background-image:
+    linear-gradient(to right, var(--grid) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
+  background-size: 56px 56px;
+  transform: perspective(900px) rotateX(60deg);
+  opacity:.55; filter: blur(.2px);
+  animation: gridFloat 10s ease-in-out infinite; pointer-events:none;
+}
+@keyframes gridFloat{
+  0%,100%{transform:perspective(900px) rotateX(60deg) translateY(0)}
+  50%{transform:perspective(900px) rotateX(60deg) translateY(18px)}
+}
+
+/* --- scanlines --- */
+.scan{
+  position:fixed; inset:-40px 0 0 0;
+  background: repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 6px, rgba(0,255,154,.035) 7px, rgba(0,0,0,0) 10px);
+  mix-blend-mode: screen; opacity:.5; pointer-events:none;
+  animation: scanMove 7s linear infinite;
+}
+@keyframes scanMove{0%{transform:translateY(-40px)}100%{transform:translateY(40px)}}
+
+/* --- code rain --- */
+.code-layer{position:fixed; inset:0; pointer-events:none; opacity:.85; filter: drop-shadow(0 0 10px rgba(0,255,154,.12));}
+.code-stream{
+  position:absolute; top:-25%; width:1.2ch; color: rgba(0,255,154,.75);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size:14px; line-height:1.12; white-space: pre;
+  animation: fall linear infinite;
+  text-shadow:0 0 10px rgba(0,255,154,.22); user-select:none; will-change: transform, opacity;
+}
+@keyframes fall{0%{transform:translateY(0);opacity:0}8%{opacity:1}100%{transform:translateY(170%);opacity:.85}}
+
+/* --- particles --- */
+canvas#particles{position:fixed; inset:0; pointer-events:none; opacity:.9;}
+
+/* --- center card --- */
+.wrap{position:relative; height:100%; display:grid; place-items:center;}
+.card{
+  width:min(820px,90vw); max-height:90vh;
+  background: linear-gradient(180deg, var(--cardA), var(--cardB));
+  border:1px solid var(--stroke); border-radius:22px;
+  box-shadow:0 10px 40px rgba(0,0,0,.55),0 0 0 1px rgba(0,255,154,.08) inset,0 0 60px rgba(0,255,154,.08);
+  backdrop-filter: blur(10px);
+  padding: clamp(14px,2.5vw,24px);
+  display:flex; flex-direction:column; align-items:center; text-align:center;
+  position:relative; overflow:hidden;
+  transform: scale(0.92);
+  transition: all .3s ease;
+}
+.card.shrink{transform:scale(0.82); width:80%;}
+
+/* Glow */
+.glow{
+  position:absolute; inset:-2px;
+  background:
+    radial-gradient(700px 240px at 20% 0%, rgba(0,255,154,.22), transparent 60%),
+    radial-gradient(500px 220px at 80% 10%, rgba(50,255,182,.16), transparent 55%),
+    radial-gradient(500px 240px at 50% 110%, rgba(0,255,154,.14), transparent 55%);
+  opacity:.8; pointer-events:none;
+}
+
+/* Buttons */
+.btn{display:block;width:85%;max-width:400px;margin:10px auto;padding:14px;font-size:16px;font-weight:bold;border:none;border-radius:14px;
+cursor:pointer;background:linear-gradient(135deg,#00ff9c,#00c67a); color:#003322; box-shadow:0 0 12px rgba(0,255,170,.6),0 0 24px rgba(0,255,170,.35); transition:.3s;}
+.btn:hover{box-shadow:0 0 22px rgba(0,255,170,.9),0 0 40px rgba(0,255,170,.6);}
+.mini-btn{display:inline-block;padding:10px 22px;font-weight:bold;border-radius:14px;text-decoration:none;background:#00ff9c;color:#003322;box-shadow:0 0 18px #00ff9c,0 0 35px #00ff9c;animation:blink 1.5s infinite alternate;}
+@keyframes blink{0%{box-shadow:0 0 18px #00ff9c,0 0 35px #00ff9c}50%{box-shadow:0 0 30px #00ff9c,0 0 60px #00ff9c}100%{box-shadow:0 0 18px #00ff9c,0 0 35px #00ff9c}}
+
+img{border-radius:16px;margin:10px 0; max-width:100%; height:auto; display:block; margin-left:auto; margin-right:auto;}
+.photo{width:28%} .logo{width:20%} .screen{width:65%} .signal-img{width:65%;animation:blinkSignal 1s infinite alternate;}
+@keyframes blinkSignal{0%{filter:brightness(1);}50%{filter:brightness(1.8);}100%{filter:brightness(1);}}
+
+.text{margin:14px 0;font-size:16px;line-height:1.55;text-shadow:0 0 6px rgba(0,255,170,.35),0 0 14px rgba(0,255,170,.25);text-align:center;}
+
+/* --- уменьшены фото отзывов --- */
+.review-box{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;}
+.review-box img{width:70%; max-width:320px; margin:0 auto;}
+.arrow{font-size:28px;cursor:pointer;color:#00ff9c;}
+
+#codeInput{padding:10px;border-radius:10px;width:80%;font-size:16px;background:black;color:#b6ffda;border:1px solid #00ff9c;text-align:center;text-shadow:0 0 6px #00ff9c;}
+#errorMsg{margin-top:8px;font-weight:bold;text-align:center;}
+.blinkGreen{animation:blinkGreen 1s infinite alternate;} @keyframes blinkGreen{0%{color:#00ff66;text-shadow:0 0 6px #00ff66,0 0 12px #00ff66}50%{color:#00ff99;text-shadow:0 0 14px #00ff99,0 0 28px #00ff99}100%{color:#00ff66;text-shadow:0 0 6px #00ff66,0 0 12px #00ff66;}}
+.blinkRed{animation:blinkRed 1s infinite alternate;} @keyframes blinkRed{0%{color:#ff4444;text-shadow:0 0 6px #ff4444,0 0 12px #ff4444}50%{color:#ff6666;text-shadow:0 0 14px #ff6666,0 0 28px #ff6666}100%{color:#ff4444;text-shadow:0 0 6px #ff4444,0 0 12px #ff4444;}
+</style>
+</head>
+<body>
+<div class="grid"></div>
+<div class="scan"></div>
+<canvas id="particles"></canvas>
+<div class="code-layer" id="codeLayer" aria-hidden="true"></div>
+
+<main class="wrap">
+<section class="card" id="card">
+<div class="glow"></div>
+<!-- Контент через JS -->
+</section>
+</main>
+
+<script>
+// --- Code Rain ---
+const codeLayer=document.getElementById('codeLayer');
+const glyphs="01{}[]()<>$#=+*_-;:.,/\\|!@%^&";
+const snippets=[
+  "const api = await fetch('/v1/ping')",
+  "if (ok) return next()",
+  "SELECT * FROM users WHERE active=1;",
+  "docker compose up -d",
+  "npm run build",
+  "git push origin main",
+  "try { deploy() } catch(e) { rollback() }",
+  "status: 200 • cache: hit"
+];
+
+function streamCount(){const w=window.innerWidth;if(w<420)return 16;if(w<720)return 22;if(w<1100)return 30;return 40;}
+function makeStream(){
+  const el=document.createElement('div'); el.className='code-stream';
+  const x=Math.random()*100; const dur=5+Math.random()*8; const delay=Math.random()*-10;
+  const size=(window.innerWidth<420)?(11+Math.random()*4):(12+Math.random()*6);
+  const alpha=0.35+Math.random()*0.55; el.style.left=x+'vw';
+  el.style.animationDuration=dur+'s'; el.style.animationDelay=delay+'s';
+  el.style.fontSize=size+'px'; el.style.opacity=alpha;
+  const len=26+Math.floor(Math.random()*44); let text="";
+  if(Math.random()<0.22)text+=snippets[Math.floor(Math.random()*snippets.length)]+"\n";
+  for(let k=0;k<len;k++)text+=glyphs[Math.floor(Math.random()*glyphs.length)]+"\n";
+  el.textContent=text; codeLayer.appendChild(el);
+  const ttl=(dur*1000)+1500; setTimeout(()=>{el.remove(); makeStream();}, ttl);
+}
+function buildRain(){codeLayer.innerHTML=""; const count=streamCount(); for(let i=0;i<count;i++)makeStream();}
+buildRain();
+window.addEventListener('keydown', e=>{if(e.key.toLowerCase()==='r')buildRain();});
+window.addEventListener('resize', ()=>{setTimeout(buildRain,160);});
+
+// --- Particles ---
+const canvas=document.getElementById('particles'); const ctx=canvas.getContext('2d',{alpha:true});
+function resizeCanvas(){const dpr=Math.min(2,window.devicePixelRatio||1); canvas.width=Math.floor(window.innerWidth*dpr); canvas.height=Math.floor(window.innerHeight*dpr); canvas.style.width=window.innerWidth+"px"; canvas.style.height=window.innerHeight+"px"; ctx.setTransform(dpr,0,0,dpr,0,0);}
+resizeCanvas(); window.addEventListener('resize', resizeCanvas);
+let particles=[];
+function initParticles(){const count=window.innerWidth<420?40:window.innerWidth<720?52:70; particles=Array.from({length:count},()=>({x:Math.random()*window.innerWidth,y:Math.random()*window.innerHeight,r:0.6+Math.random()*1.8,vx:(-0.2+Math.random()*0.4),vy:(-0.25+Math.random()*0.5),a:0.08+Math.random()*0.22}));}
+initParticles();
+function drawParticles(){ctx.clearRect(0,0,window.innerWidth,window.innerHeight); const g=ctx.createRadialGradient(window.innerWidth*0.7, window.innerHeight*0.2, 20, window.innerWidth*0.7, window.innerHeight*0.2, 520); g.addColorStop(0,"rgba(0,255,154,0.10)"); g.addColorStop(1,"rgba(0,255,154,0)"); ctx.fillStyle=g; ctx.fillRect(0,0,window.innerWidth,window.innerHeight); for(const p of particles){p.x+=p.vx;p.y+=p.vy;if(p.x<-20)p.x=window.innerWidth+20;if(p.x>window.innerWidth+20)p.x=-20;if(p.y<-20)p.y=window.innerHeight+20;if(p.y>window.innerHeight+20)p.y=-20;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle=`rgba(0,255,154,${p.a})`;ctx.fill();} requestAnimationFrame(drawParticles);}
+drawParticles();
+</script>
+
+<script>
+// --- BOT ---
+const card=document.getElementById("card");
+const pairs=["EUR/USD","GBP/USD","USD/JPY","AUD/USD","USD/CHF"];
+const dirs=["BUY","SELL"];
+const rand=a=>a[Math.floor(Math.random()*a.length)];
+const randTime=()=>`${Math.floor(Math.random()*5)+1} мин ${[0,10,20,30,40,50][Math.floor(Math.random()*6)]} сек`;
+
+function show(content,shrink=false){
+  card.style.opacity=0;
+  setTimeout(()=>{
+    card.innerHTML=`<div class="glow"></div>`+content;
+    card.style.opacity=1;
+    if(shrink){card.classList.add("shrink");}
+    else{card.classList.remove("shrink");}
+  },150);
+}
+
+// --- START ---
+function start(){show(`
+  <img src="photo.png" class="photo">
+  <div class="text">👋 Приветствую в <b>BLACK TRADING</b></div>
+  <button class="btn" onclick="menu()">🚀 Открыть торговый бот</button>
+`);}
+
+// --- MENU ---
+function menu(){show(`
+  <img src="1.png" class="screen">
+  <div class="text">🤖 Торговый AI-бот с приватными индикаторами<br>💹 Лимитов на заработок нет<br>📣 Бесплатные сигналы каждый день</div>
+  <button class="btn" onclick="trade()">💹 Торговать</button>
+  <button class="btn" onclick="reviews(true)">⭐ Отзывы</button>
+  <button class="btn" onclick="community()">👥 Комьюнити</button>
+  <button class="btn" onclick="support()">🆘 Поддержка</button>
+`);}
+
+// --- REVIEWS ---
+let r=1;
+function reviews(shrink=false){
+  show(`
+    <div class="text">⭐ Наши отзывы клиентов</div>
+    <div class="review-box">
+      <div class="arrow" onclick="prev()">◀</div>
+      <img id="rev" src="a1.png">
+      <div class="arrow" onclick="next()">▶</div>
+    </div>
+    <button class="btn" onclick="menu()">⬅ Назад</button>
+  `, true); // карточка сжата при отзывах
+}
+function prev(){r=r<=1?14:r-1; document.getElementById("rev").src=`a${r}.png`;}
+function next(){r=r>=14?1:r+1; document.getElementById("rev").src=`a${r}.png`;}
+
+// --- остальные функции BOT ---
+function trade(){show(`
+  <img src="2.png" class="screen">
+  <div class="text">Для доступа нужно создать аккаунт у брокера</div>
+  <button class="btn" onclick="rf()">🇷🇺 Ссылка для РФ</button>
+  <button class="btn" onclick="other()">🌍 Ссылка для других стран</button>
+  <button class="btn" onclick="menu()">⬅ Назад</button>
+`);}
+function rf(){show(`
+  <img src="3.png" class="screen"><br>
+  <a class="mini-btn" href="https://po-ru4.click/register?utm_campaign=817774" target="_blank">🆕 Создать аккаунт</a><br><br>
+  <button class="btn" onclick="code()">✅ Я прошел регистрацию</button>
+  <button class="btn" onclick="trade()">⬅ Назад</button>
+`);}
+function other(){show(`
+  <img src="4.png" class="screen"><br>
+  <a class="mini-btn" href="https://u3.shortink.io/register?utm_campaign=817774" target="_blank">🆕 Создать аккаунт</a><br><br>
+  <button class="btn" onclick="code()">✅ Я прошел регистрацию</button>
+  <button class="btn" onclick="trade()">⬅ Назад</button>
+`);}
+function support(){show(`
+  <img src="logo_small.png" class="logo"><br>
+  <a class="mini-btn" href="https://t.me/Manager_blacktrading01" target="_blank">👤 Написать менеджеру</a><br><br>
+  <button class="btn" onclick="menu()">⬅ Назад</button>
+`);}
+function community(){window.open("https://t.me/+CQVa-k3BXGc3Yzhi");}
+
+// --- CODE ---
+function code(){show(`
+   <img src="5.png" class="screen"><br>
+  <div class="text" style="margin-bottom:8px;">Чтобы получить доступ к боту, скинь свой ID менеджеру</div>
+  <a class="mini-btn" href="https://t.me/Manager_blacktrading01" target="_blank">👤 Написать менеджеру</a><br><br>
+  <div style="font-size:14px;margin-bottom:6px;color:#b6ffda;text-shadow:0 0 6px rgba(0,255,170,.35);">
+    Введите секретный код:
+  </div>
+  <input id="codeInput" placeholder="🔐 Код" type="text">
+  <div id="errorMsg"></div>
+  <button class="btn" onclick="check()">🔐 Ввести код</button>
+  <button class="btn" onclick="menu()">⬅ Назад</button>
+`);}
+
+// --- CHECK CODE ---
+function check(){
+  const val = document.getElementById("codeInput").value;
+  const err = document.getElementById("errorMsg");
+  if(val==="6699"){
+    err.innerHTML='<span class="blinkGreen">✅ Код верный</span>';
+    setTimeout(bot,1000);
+  } else {
+    err.innerHTML='<span class="blinkRed">❌ Код неверный</span>';
+  }
+}
+
+// --- BOT SIGNAL ---
+function bot(){
+  show(`
+    <img src="6.png" class="screen">
+    <div class="text">✅ Доступ к БОТУ — ОТКРЫТ</div>
+    <button class="btn" onclick="signal()">📡 Получить сигнал</button>
+    <button class="btn" onclick="menu()">📋 Меню</button>
+    <button class="btn" onclick="code()">🔐 Секретный код</button>
+  `);
+}
+
+function signal(){
+  show(`<div class="loader"></div><div class="text">🤖 ИИ анализирует рынок...</div>`);
+  setTimeout(()=>{
+    const pair = rand(pairs);
+    show(`<div class="loader"></div><div class="text">📊 ИИ анализирует валютную пару ${pair}...</div>`);
+    setTimeout(()=>{
+      const dir = rand(dirs);
+      show(`
+        <img src="${dir==="BUY"?"buy.png":"sell.png"}" class="signal-img">
+        <div class="text"><b>${pair}</b><br>⏱ ${randTime()}<br>
+        <span class="${dir==="BUY"?"blinkGreen":"blinkRed"}" style="font-size:20px">${dir==="BUY"?"🟢 КУПИТЬ":"🔴 ПРОДАТЬ"}</span></div>
+        <button class="btn" onclick="signal()">🔁 Новый сигнал</button>
+        <button class="btn" onclick="menu()">📋 Меню</button>
+        <button class="btn" onclick="code()">🔐 Код</button>
+      `);
+    },6000);
+  },4000);
+}
+
+// --- REVIEWS NAVIGATION ---
+function prev(){r=r<=1?14:r-1; document.getElementById("rev").src=`a${r}.png`;}
+function next(){r=r>=14?1:r+1; document.getElementById("rev").src=`a${r}.png`;}
+
+// --- START PAGE ---
+start();
+</script>
+</body>
+</html>
